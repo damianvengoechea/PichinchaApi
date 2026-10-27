@@ -1,0 +1,18 @@
+{
+  "id": "#(id)",
+  "category": {
+    "id": 1,
+    "name": "Perros"
+  },
+  "name": "#(nombre)",
+  "photoUrls": [
+    "https://images.dog.ceo/breeds/labrador/n02099712_100.jpg"
+  ],
+  "tags": [
+    {
+      "id": 1,
+      "name": "vacunado"
+    }
+  ],
+  "status": "#(estado)"
+}

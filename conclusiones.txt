@@ -1,0 +1,85 @@
+===============================================================================
+ CONCLUSIONES Y HALLAZGOS - PRUEBAS API PETSTORE (https://petstore.swagger.io/)
+===============================================================================
+
+1. RESULTADO GENERAL
+--------------------
+  - Los tres casos solicitados funcionan correctamente contra el API público:
+      * Añadir una mascota (POST /pet) ............................ OK
+      * Consultar la mascota ingresada por ID (GET /pet/{petId}) .. OK
+      * Actualizar nombre y estatus a "sold" (PUT /pet) ........... OK
+    Además el caso negativo (consultar un ID inexistente -> 404) ........ OK
+  - Resultado: 4 escenarios, 4 exitosos, 0 fallidos. La suite se ejecutó
+    5 veces seguidas con el mismo resultado (estable).
+  - Tiempos de respuesta observados entre ~360 ms y ~860 ms por petición;
+    la ejecución completa toma ~5 segundos.
+  - El servicio respeta el contrato en el flujo feliz: lo que se envía en el
+    POST/PUT es exactamente lo que devuelve la respuesta y la consulta por ID,
+    y la actualización queda persistida (verificada con un GET posterior).
+
+
+2. HALLAZGOS SOBRE EL API
+-------------------------
+  Se identificaron, mediante pruebas exploratorias manuales sobre el mismo
+  API, los siguientes comportamientos que se apartan de la documentación
+  Swagger o de las buenas prácticas REST:
+
+  H1. No valida el campo "status": acepta valores fuera del enum documentado
+      (available | pending | sold). Ej: status "vendidisimo" -> 200 y lo guarda.
+  H2. No valida campos obligatorios: "name" y "photoUrls" están marcados como
+      requeridos, pero un POST sin "name" responde 200 y crea la mascota.
+  H3. Un tipo de dato inválido (ej. "id": "abc") responde 500 (error interno)
+      sin cuerpo, en lugar de 400/405 ("Invalid input") como indica la documentación.
+  H4. Si no se envía "id", el servidor asigna 9223372036854775807 (el máximo
+      valor de un Long). Todas las mascotas creadas sin id comparten ese id y
+      se sobrescriben entre sí; además el número supera el entero seguro de
+      JavaScript (2^53), por lo que pierde precisión en clientes JS.
+  H5. PUT /pet sobre un id que no existe crea la mascota y responde 200, en
+      lugar de 404 ("Pet not found") como indica la documentación.
+  H6. POST /pet responde 200 en lugar de 201 (Created), y se comporta como
+      un "upsert": si el id ya existe, lo sobrescribe sin advertencia.
+  H7. En la respuesta de error 404, el campo "code" vale 1 (no 404) y "type"
+      es "error"; el código HTTP real solo se obtiene del status de la respuesta.
+  H8. Las operaciones sobre /pet no exigen autenticación, aunque la
+      documentación las declara protegidas con OAuth2 (petstore_auth).
+
+
+3. HALLAZGOS SOBRE LA AUTOMATIZACIÓN Y DECISIONES TOMADAS
+---------------------------------------------------------
+  - Ambiente compartido: el API es público y cualquier persona puede modificar
+    o borrar datos. Por eso cada escenario genera su propio id aleatorio
+    (generarId) en lugar de usar un id fijo, y los casos 2 y 3 crean su propia
+    mascota como precondición (crear-mascota.feature). Así los escenarios son
+    independientes entre sí y pueden ejecutarse por separado mediante tags.
+  - Consistencia eventual: el API está detrás de un balanceador con varias
+    réplicas, por lo que un GET inmediatamente posterior al POST/PUT puede
+    llegar a una réplica que aún no tiene el dato. Las consultas usan
+    "retry until" (5 intentos cada 1 s). En las ejecuciones realizadas no fue
+    necesario reintentar, pero el reintento evita falsos negativos.
+  - Formato del id en la URL: con ids grandes (ej. basados en timestamp, del
+    orden de 10^14) Karate los trata como número decimal y los escribe en
+    notación científica en la ruta (/pet/1.79313320313863E14); el API responde
+    404 con NumberFormatException. Se corrigió generando ids de 10 dígitos
+    dentro del rango de int (< 2^31).
+  - Validación por esquema: además de comparar valores, cada respuesta se
+    valida contra un esquema (tipos de cada campo y valores permitidos de
+    status), lo que detectaría cambios de contrato.
+  - Trazabilidad: el reporte HTML de Karate y el log reportes/karate.log
+    registran entradas, salidas, códigos y tiempos de cada petición, que
+    sirven como evidencia de la ejecución.
+
+
+4. RECOMENDACIONES
+------------------
+  - Corregir H1-H3 agregando validación de entrada (enum, campos requeridos,
+    tipos) que responda 400/405 en lugar de aceptar el dato o responder 500.
+  - Generar ids únicos en el servidor cuando no se envían (H4) y responder
+    201 en las creaciones (H6).
+  - Hacer que PUT responda 404 cuando la mascota no existe (H5), o documentar
+    explícitamente el comportamiento de upsert.
+  - Para pruebas repetibles se recomienda usar un ambiente propio
+    (docker run -p 8080:8080 swaggerapi/petstore, karate.env=local) y no
+    depender del API público compartido.
+  - Extender la suite con los casos negativos de H1-H5 una vez se defina el
+    comportamiento esperado, y agregar la limpieza de datos (DELETE /pet/{id})
+    al final de cada escenario.

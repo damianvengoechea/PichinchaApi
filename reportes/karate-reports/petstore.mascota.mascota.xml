@@ -1,0 +1,85 @@
+<testsuite failures="0" name="petstore/mascota/mascota.feature" skipped="0" tests="4" time="4.29569"><testcase classname="petstore.mascota.mascota" name="Añadir una mascota a la tienda" time="1.695254"><system-out>* url baseUrl ............................................................. passed
+* def esquemaMascota = read('classpath:petstore/schemas/mascota-schema.json') . passed
+* def id = generarId() .................................................... passed
+* def nombre = 'Firulais' ................................................. passed
+* def estado = 'available' ................................................ passed
+* def mascota = read('classpath:petstore/data/mascota.json') .............. passed
+* print 'Entrada - mascota a crear:', mascota ............................. passed
+Given path 'pet' .......................................................... passed
+And request mascota ....................................................... passed
+When method post .......................................................... passed
+Then status 200 ........................................................... passed
+And match header Content-Type contains 'application/json' ................. passed
+And match response == esquemaMascota ...................................... passed
+And match each response.tags == { id: '#number', name: '#string' } ........ passed
+And match response == mascota ............................................. passed
+And match response.id == id ............................................... passed
+And match response.name == nombre ......................................... passed
+And match response.status == 'available' .................................. passed
+* print 'Salida - mascota creada:', response .............................. passed
+* print 'Tiempo de respuesta (ms):', responseTime ......................... passed
+</system-out></testcase>
+<testcase classname="petstore.mascota.mascota" name="Consultar la mascota ingresada previamente (búsqueda por ID)" time="0.868379"><system-out>* url baseUrl ............................................................. passed
+* def esquemaMascota = read('classpath:petstore/schemas/mascota-schema.json') . passed
+* def id = generarId() .................................................... passed
+* def nombre = 'Firulais' ................................................. passed
+* def estado = 'available' ................................................ passed
+* def creacion = call read('crear-mascota.feature') { id: '#(id)', nombre: '#(nombre)', estado: '#(estado)' } . passed
+* def mascotaIngresada = creacion.response ................................ passed
+* print 'Entrada - id a consultar:', id ................................... passed
+Given path 'pet', id ...................................................... passed
+And retry until responseStatus == 200 ..................................... passed
+When method get ........................................................... passed
+Then status 200 ........................................................... passed
+And match response == esquemaMascota ...................................... passed
+And match response == mascotaIngresada .................................... passed
+And match response.id == id ............................................... passed
+And match response.name == nombre ......................................... passed
+And match response.status == 'available' .................................. passed
+* print 'Salida - mascota consultada:', response .......................... passed
+* print 'Tiempo de respuesta (ms):', responseTime ......................... passed
+</system-out></testcase>
+<testcase classname="petstore.mascota.mascota" name="Actualizar el nombre de la mascota y el estatus a &quot;sold&quot;" time="1.327719"><system-out>* url baseUrl ............................................................. passed
+* def esquemaMascota = read('classpath:petstore/schemas/mascota-schema.json') . passed
+* def id = generarId() .................................................... passed
+* def nombre = 'Firulais' ................................................. passed
+* def estado = 'available' ................................................ passed
+* def creacion = call read('crear-mascota.feature') { id: '#(id)', nombre: '#(nombre)', estado: '#(estado)' } . passed
+* def nuevoNombre = 'Firulais Vendido' .................................... passed
+* def nuevoEstado = 'sold' ................................................ passed
+* def mascotaActualizada = creacion.response .............................. passed
+* set mascotaActualizada.name = nuevoNombre ............................... passed
+* set mascotaActualizada.status = nuevoEstado ............................. passed
+* print 'Entrada - mascota con datos actualizados:', mascotaActualizada ... passed
+Given path 'pet' .......................................................... passed
+And request mascotaActualizada ............................................ passed
+When method put ........................................................... passed
+Then status 200 ........................................................... passed
+And match response == esquemaMascota ...................................... passed
+And match response == mascotaActualizada .................................. passed
+And match response.id == id ............................................... passed
+And match response.name == nuevoNombre .................................... passed
+And match response.status == 'sold' ....................................... passed
+* print 'Salida - mascota actualizada:', response ......................... passed
+Given path 'pet', id ...................................................... passed
+And retry until responseStatus == 200 &amp;&amp; response.status == 'sold' ........ passed
+When method get ........................................................... passed
+Then status 200 ........................................................... passed
+And match response.name == nuevoNombre .................................... passed
+And match response.status == 'sold' ....................................... passed
+* print 'Salida - consulta posterior a la actualización:', response ....... passed
+</system-out></testcase>
+<testcase classname="petstore.mascota.mascota" name="Consultar una mascota que no existe devuelve 404" time="0.404338"><system-out>* url baseUrl ............................................................. passed
+* def esquemaMascota = read('classpath:petstore/schemas/mascota-schema.json') . passed
+* def id = generarId() .................................................... passed
+* def nombre = 'Firulais' ................................................. passed
+* def estado = 'available' ................................................ passed
+* def idInexistente = id + 1 .............................................. passed
+* print 'Entrada - id inexistente:', idInexistente ........................ passed
+Given path 'pet', idInexistente ........................................... passed
+When method get ........................................................... passed
+Then status 404 ........................................................... passed
+And match response == { code: 1, type: 'error', message: 'Pet not found' } . passed
+* print 'Salida - error:', response ....................................... passed
+</system-out></testcase>
+</testsuite>
